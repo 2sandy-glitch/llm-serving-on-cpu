@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KV cache benchmark</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  :root { --bg:#f6f7f9; --card:#fff; --fg:#1d2330; --muted:#667085; --line:#e4e7ec;
+          --red:#c0392b; --blue:#2471a3; --green:#1e8e3e; --amber:#b7791f; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#12151b; --card:#1b1f27; --fg:#e6e8ec; --muted:#98a2b3; --line:#2b313c; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:14px/1.45 system-ui, sans-serif; }
+  main { max-width:1180px; margin:0 auto; padding:20px 16px 40px; }
+  h1 { font-size:20px; margin:0 0 4px; }
+  .sub { color:var(--muted); margin-bottom:16px; }
+  .grid { display:grid; gap:14px; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px 16px; }
+  .label { color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.04em; }
+  .big { font-size:24px; font-weight:600; margin-top:2px; font-variant-numeric:tabular-nums; }
+  .bar { height:10px; background:var(--line); border-radius:6px; overflow:hidden; margin-top:8px; }
+  .bar > div { height:100%; background:var(--blue); width:0; transition:width .4s; }
+  .badge { display:inline-block; padding:2px 10px; border-radius:20px; font-weight:600; font-size:13px; }
+  .s-measuring { background:#e8f1fb; color:var(--blue); } .s-warm-up { background:#fff4e0; color:var(--amber); }
+  .s-done { background:#e6f4ea; color:var(--green); } .s-failed, .s-offline { background:#fde8e8; color:var(--red); }
+  .s-starting, .s-waiting { background:var(--line); color:var(--muted); }
+  table { width:100%; border-collapse:collapse; font-variant-numeric:tabular-nums; }
+  th, td { text-align:right; padding:6px 8px; border-bottom:1px solid var(--line); }
+  th:first-child, td:first-child, th:nth-child(2), td:nth-child(2) { text-align:left; }
+  th { color:var(--muted); font-weight:500; font-size:12px; }
+  .wide { grid-column:1/-1; }
+  .log { font:12px/1.5 ui-monospace, monospace; max-height:220px; overflow:auto; white-space:pre-wrap; }
+  .charts { display:grid; gap:14px; grid-template-columns:repeat(auto-fit,minmax(340px,1fr)); margin-top:14px; }
+  canvas { max-height:300px; }
+  .muted { color:var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <h1>KV cache benchmark: GPT-2 from scratch on CPU</h1>
+  <div class="sub" id="sub">Waiting for the benchmark…</div>
+
+  <div class="grid">
+    <div class="card"><div class="label">Status</div>
+      <div class="big"><span id="status" class="badge s-waiting">waiting</span></div>
+      <div id="now" class="muted" style="margin-top:6px">–</div></div>
+    <div class="card"><div class="label">Overall progress</div>
+      <div class="big" id="overall">0%</div><div class="bar"><div id="overallBar"></div></div></div>
+    <div class="card"><div class="label">Current run</div>
+      <div class="big" id="step">–</div><div class="bar"><div id="stepBar"></div></div></div>
+    <div class="card"><div class="label">Time</div>
+      <div class="big" id="eta">–</div>
+      <div class="muted" id="elapsed">–</div></div>
+    <div class="card"><div class="label">CPU load (1 min)</div>
+      <div class="big" id="load">–</div>
+      <div class="muted" id="loadNote">Lower is better; above the core count means programs are waiting</div></div>
+  </div>
+
+  <div class="charts">
+    <div class="card"><div class="label">Time for each new token (ms), latest run per setting</div><canvas id="perToken"></canvas></div>
+    <div class="card"><div class="label">Total time per setting (median, seconds)</div><canvas id="totals"></canvas></div>
+  </div>
+
+  <div class="grid" style="margin-top:14px">
+    <div class="card wide"><div class="label">Results so far</div>
+      <table><thead><tr><th>New tokens</th><th>Mode</th><th>Total (s)</th><th>Tokens/s</th><th>ms/token</th><th>Cache (MB)</th><th>Speed-up</th></tr></thead>
+      <tbody id="results"><tr><td colspan="7" class="muted">None yet</td></tr></tbody></table></div>
+    <div class="card"><div class="label">Checks: same text with and without the cache</div><div id="checks" class="muted">None yet</div></div>
+    <div class="card" style="grid-column:span 2"><div class="label">Log</div><div class="log" id="log"></div></div>
+  </div>
+</main>
+
+<script>
+const RED = "#c0392b", BLUE = "#2471a3";
+const $ = id => document.getElementById(id);
+const fmt = s => { s = Math.max(0, Math.round(s)); const m = Math.floor(s / 60); return m ? `${m} min ${s % 60} s` : `${s} s`; };
+
+Chart.defaults.color = getComputedStyle(document.body).color;
+const perToken = new Chart($("perToken"), {
+  type: "line",
+  data: { datasets: [] },
+  options: { animation: false, parsing: false, normalized: true, elements: { point: { radius: 0 } },
+    scales: { x: { type: "linear", title: { display: true, text: "new token number" } },
+              y: { beginAtZero: true, title: { display: true, text: "ms" } } } }
+});
+const totals = new Chart($("totals"), {
+  type: "bar",
+  data: { labels: [], datasets: [
+    { label: "no cache", backgroundColor: RED, data: [] },
+    { label: "with KV cache", backgroundColor: BLUE, data: [] } ] },
+  options: { animation: false, scales: { y: { beginAtZero: true } } }
+});
+
+function render(p) {
+  const st = p.status;
+  $("status").textContent = st; $("status").className = "badge s-" + st;
+  $("sub").textContent = `${p.cpu || ""} · ${p.threads} threads · prompt ${p.prompt_tokens} tokens · ${p.timed_runs} timed runs per setting, median · updated ${p.updated?.slice(11) || "–"}`;
+  $("now").textContent = p.current ? p.current.label : (st === "done" ? "All settings finished" : "–");
+  const pct = Math.round(100 * (p.overall_fraction || 0));
+  $("overall").textContent = pct + "%"; $("overallBar").style.width = pct + "%";
+  if (p.current) {
+    const c = p.current, f = c.step / c.new_tokens;
+    $("step").textContent = `token ${c.step} / ${c.new_tokens}`; $("stepBar").style.width = Math.round(100 * f) + "%";
+  } else { $("step").textContent = "–"; $("stepBar").style.width = st === "done" ? "100%" : "0"; }
+  $("eta").textContent = st === "done" ? "Finished" : `~${fmt(p.eta_s)} left`;
+  $("elapsed").textContent = `Elapsed ${fmt(p.elapsed_s)}` + (st === "done" ? "" : ` · finishes about ${p.finish_at}`) + " (estimate)";
+
+  // per-token chart: curves for the setting being run now (or the longest one at the end)
+  const keys = Object.keys(p.curves || {});
+  const n = p.current && p.current.mode !== "warmup" ? p.current.new_tokens : Math.max(0, ...keys.map(k => +k.split("|")[1]));
+  perToken.data.datasets = ["no_cache", "with_cache"].filter(m => p.curves[`${m}|${n}`]).map(m => ({
+    label: `${m.replace("_", " ")} (${n} tokens)`, borderColor: m === "no_cache" ? RED : BLUE, borderWidth: 1.5,
+    data: p.curves[`${m}|${n}`].map((y, i) => ({ x: i + 1, y }))
+  }));
+  perToken.update();
+
+  const rows = p.results || [];
+  const ns = [...new Set(rows.map(r => r.new_tokens))];
+  totals.data.labels = ns.map(String);
+  totals.data.datasets[0].data = ns.map(k => rows.find(r => r.new_tokens === k && r.mode === "no_cache")?.total_s ?? null);
+  totals.data.datasets[1].data = ns.map(k => rows.find(r => r.new_tokens === k && r.mode === "with_cache")?.total_s ?? null);
+  totals.update();
+
+  $("results").innerHTML = rows.length ? "" : '<tr><td colspan="7" class="muted">None yet</td></tr>';
+  for (const r of rows) {
+    const other = rows.find(o => o.new_tokens === r.new_tokens && o.mode === "no_cache");
+    const tr = document.createElement("tr");
+    const cells = [r.new_tokens, r.mode.replace("_", " "), r.total_s.toFixed(2), r.tokens_per_s.toFixed(1), r.ms_per_token.toFixed(1),
+      r.mode === "with_cache" ? r.cache_mb.toFixed(2) : "–",
+      r.mode === "with_cache" && other ? (other.total_s / r.total_s).toFixed(1) + "×" : "–"];
+    for (const c of cells) { const td = document.createElement("td"); td.textContent = c; tr.appendChild(td); }
+    $("results").appendChild(tr);
+  }
+  $("checks").textContent = (p.checks || []).length
+    ? p.checks.map(c => `${c.new_tokens} tokens: ${c.same_text ? "✅ same text" : "❌ DIFFERENT"}`).join("\n") : "None yet";
+  $("checks").style.whiteSpace = "pre-line";
+  const log = $("log"), atBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 20;
+  log.textContent = (p.log || []).join("\n");
+  if (atBottom) log.scrollTop = log.scrollHeight;
+}
+
+async function tick() {
+  try {
+    const r = await fetch("progress.json?" + Date.now());
+    if (r.ok) render(await r.json());
+  } catch (e) { $("status").textContent = "waiting"; }
+  try {
+    const l = await (await fetch("load.json")).json();
+    $("load").textContent = `${l.load_1min} / ${l.cores} cores`;
+    $("load").style.color = l.load_1min > l.cores ? RED : "";
+  } catch (e) { $("status").textContent = "offline"; $("status").className = "badge s-offline"; }
+}
+tick(); setInterval(tick, 1000);
+</script>
+</body>
+</html>

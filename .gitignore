@@ -5,3 +5,5 @@ __pycache__/
 *.bin
 *.safetensors
 .ipynb_checkpoints/
+kv-cache-from-scratch/dashboard/progress.json
+kv-cache-from-scratch/dashboard/progress.tmp
