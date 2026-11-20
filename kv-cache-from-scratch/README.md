@@ -397,10 +397,5 @@ print(tok.decode(model.generate(idx, 20, use_cache=True)[0]))
 | 5 | Measure | ✅ 7.6× faster at 400 tokens |
 | 6 | Write up (this README) | ✅ |
 
-## Rules
-- Claude writes the code, I review and approve every step.
-- Small commits, plain messages, no AI attribution. Nothing pushed without my yes.
-- Before measuring, close extra apps so the timings are clean.
-
 ## Licence
 MIT, see [LICENSE](../LICENSE).
