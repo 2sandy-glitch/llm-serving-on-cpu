@@ -22,10 +22,11 @@ with exactly the same text. The cache cost **72 KB of memory per token**.
 8. [How I measured it](#8-how-i-measured-it)
 9. [Results](#9-results)
 10. [What I learned](#10-what-i-learned)
-11. [Limits](#11-limits)
-12. [Run it yourself](#12-run-it-yourself)
-13. [Check yourself](#13-check-yourself)
-14. [Reading and credits](#14-reading-and-credits)
+11. [Problems I hit and how I solved them](#11-problems-i-hit-and-how-i-solved-them)
+12. [Limits](#12-limits)
+13. [Run it yourself](#13-run-it-yourself)
+14. [Check yourself](#14-check-yourself)
+15. [Reading and credits](#15-reading-and-credits)
 
 ---
 
@@ -280,7 +281,92 @@ Median of 3 runs. Same text with and without the cache at every length.
 
 ---
 
-## 11. Limits
+## 11. Problems I hit and how I solved them
+Every problem below really happened while building this. Each one taught me something.
+
+### 1. My system Python was too new
+- **Problem:** the PC's system Python is 3.14, too new to rely on for PyTorch and its libraries.
+- **Fix:** let `uv` manage a separate Python 3.12 for this project (`.python-version`), leaving the
+  system Python alone.
+
+### 2. The normal PyTorch download is huge
+- **Problem:** the default PyTorch install on Linux brings several GB of GPU (CUDA) libraries. This PC has no usable
+  GPU, so all of that would be wasted.
+- **Fix:** point `uv` at PyTorch's **CPU-only** package index in `pyproject.toml`. Much smaller,
+  same CPU speed.
+
+### 3. OpenAI's weights did not fit my layers as they were
+- **Problem:** Hugging Face stores four GPT-2 layers (`c_attn`, `attn.c_proj`, `c_fc`,
+  `mlp.c_proj`) as `Conv1D`, with weights shaped `(in, out)`. PyTorch's `nn.Linear`, which my model
+  uses, expects `(out, in)`. Copying them straight in would give nonsense or a shape error.
+- **Fix:** checked that transformers 5.23 still uses `Conv1D`, then transpose exactly those four
+  weights in `load_weights.py`. The loader also stops with a clear error on any missing name or
+  wrong shape, so a bad load can never pass quietly.
+
+### 4. My model's numbers were not exactly equal to Hugging Face's
+- **Problem:** the largest difference in output scores was **9.5e-05**, close to my 1e-4 limit.
+  Was something slightly wrong?
+- **Why:** no. The scores are around -100 in size, so this is a one-in-a-million rounding
+  difference. It comes from doing the same maths in a slightly different order (by hand, step by
+  step, instead of Hugging Face's fused version).
+- **Fix:** keep the 1e-4 limit as the test. If a longer prompt ever goes just over it because of
+  rounding, add a small relative tolerance, the normal way to compare decimal results.
+
+### 5. Every layer needed to know which slot of the cache is its own
+- **Problem:** adding the cache crashed at once with
+  `CausalSelfAttention.__init__() takes 2 positional arguments but 3 were given`. The cache holds
+  12 separate K/V slots, one per layer, but an attention layer had no idea which layer it was.
+- **Fix:** pass the layer number down when building the model
+  (`Block(config, layer)` → `CausalSelfAttention(config, layer)`), so each layer reads and writes
+  its own slot.
+
+### 6. Every layer read the wrong cache length (the main bug)
+- **Problem:** the next run crashed with
+  `The size of tensor a (10) must match the size of tensor b (5)`.
+- **Why:** each layer asked the cache "how many tokens do you hold?", and the answer came from
+  **layer 0**. Layer 0 had already added this step's 5 new tokens, so layer 1 thought there were
+  5 old + 5 new = 10 tokens, while its own slot held only 5.
+- **Comparison:** 12 students each keep a notebook. The teacher asks everyone how many pages they
+  have written, but they all look at student 1's notebook, who has just written today's pages.
+- **Fix:** each layer counts from its **own** K after adding the new tokens:
+  `past = k.shape[2] - T`. The cache tests caught this within seconds.
+
+### 7. The benchmark took 13 minutes and showed nothing while running
+- **Problem:** the no-cache runs are slow on purpose (step 400 re-reads ~414 tokens), so the whole
+  benchmark took about 13 minutes with no visible progress, and I could not tell how long was left.
+- **Fix:** built the [live dashboard](dashboard/): the benchmark writes its progress to a small file
+  (outside the timed part, so the measurements are unaffected), and a local page shows status,
+  progress, time left, CPU load, a live per-token chart and results as they arrive.
+
+### 8. The first benchmark run gave impossible numbers
+- **Problem:** in the first run, generating **400** tokens with the cache (10.37 s) was faster than
+  generating **200** (12.28 s). That cannot happen. It also suggested a 17× speed-up at 400 tokens.
+- **Why:** other programs (editor, browser, system monitors) were using the CPU at the same time,
+  and the 1-minute CPU load reached about 14 on a 6-core machine.
+- **Fix:** threw that run away instead of keeping the flattering 17×, closed what I could, and re-ran
+  it. The clean run gave **7.6×** and numbers that rise steadily with length.
+
+### 9. The script recorded the CPU load at the wrong moment
+- **Problem:** `environment.json` called the CPU load "at start", but the script actually read it at
+  the end of the run.
+- **Fix:** read the load before anything starts and again at the end, and save both
+  (`load_average_1min_at_start` and `load_average_1min_at_end`).
+
+### 10. Even the clean run varied a lot between repeats
+- **Problem:** the three no-cache 400-token runs took 157.03 s, 210.04 s and 136.85 s.
+- **Fix:** report the **median** of the runs, not the fastest or the average, and record the machine
+  and its load with the results. More runs on a quieter machine would tighten this further.
+
+### 11. The first token cost different amounts in the two modes
+- **Problem:** token 1 does exactly the same work with and without the cache (both read the
+  prompt), yet its median time was 291 ms without the cache and 147 ms with it.
+- **Why:** this is noise and start-up cost, not a cache effect.
+- **Fix:** nothing to change in the code; noted as a limit, and a reminder to read a chart with care
+  before drawing conclusions from one point.
+
+---
+
+## 12. Limits
 - One small model (GPT-2 small, 124M), float32, one prompt, one request at a time, greedy decoding.
 - A desktop CPU with other programs running (CPU load 2.16 at the start, 8.72 at the end); the
   red line is spiky because of that.
@@ -291,7 +377,7 @@ Median of 3 runs. Same text with and without the cache at every length.
 
 ---
 
-## 12. Run it yourself
+## 13. Run it yourself
 Needs [uv](https://docs.astral.sh/uv/). Downloads CPU-only PyTorch and the GPT-2 weights (~500 MB)
 on first run.
 
@@ -320,7 +406,7 @@ print(tok.decode(model.generate(idx, 20, use_cache=True)[0]))
 
 ---
 
-## 13. Check yourself
+## 14. Check yourself
 1. What do Q, K and V mean, in plain words?
 2. Why can K and V be cached, but not Q?
 3. What happens to speed and memory as the text grows, with and without a cache?
@@ -347,7 +433,7 @@ print(tok.decode(model.generate(idx, 20, use_cache=True)[0]))
 
 ---
 
-## 14. Reading and credits
+## 15. Reading and credits
 **Reading**
 - Vaswani et al., ["Attention Is All You Need"](https://arxiv.org/abs/1706.03762) (2017)
 - Jay Alammar, ["The Illustrated Transformer"](https://jalammar.github.io/illustrated-transformer/)
