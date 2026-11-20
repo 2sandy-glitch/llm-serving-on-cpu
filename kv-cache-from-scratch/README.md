@@ -5,7 +5,7 @@
 > it, built my own KV cache inside it, and measured the difference on a normal CPU with no GPU.
 
 **Result:** with my KV cache, writing 400 tokens took **20.75 s instead of 157.03 s (7.6× faster)**,
-with exactly the same text. The cache cost **72 KB of memory per token**.
+with exactly the same text. The cache cost **73,728 bytes (72 KiB) of memory per token**.
 
 ![Benchmark chart: time per token and total time, with and without the KV cache](chart.png)
 
@@ -133,17 +133,17 @@ This splits generation into two phases:
 For every token, every layer stores one K and one V:
 
 ```
-2 (K and V) × 12 layers × 12 heads × 64 numbers × 4 bytes (float32) = 73,728 bytes ≈ 72 KB per token
+2 (K and V) × 12 layers × 12 heads × 64 numbers × 4 bytes (float32) = 73,728 bytes (72 KiB) per token
 ```
 
 | Tokens in cache | Size |
 |---|---|
-| 100 | ~7 MB |
-| 400 | ~28 MB |
-| 1,024 (GPT-2's limit) | ~72 MB |
+| 100 | ~7.4 MB |
+| 400 | ~29.5 MB |
+| 1,024 (GPT-2's limit) | ~75.5 MB |
 
-Small for GPT-2. For a modern 8-billion-parameter model it is about **128 KB per token, or ~1 GB
-for one 8,000-token conversation**. That is why serving systems care so much about cache memory
+Small for GPT-2. For a modern 8-billion-parameter model (Llama-3-8B, grouped-query attention,
+16-bit) it is about **128 KiB per token, or ~1 GB for one 8,000-token conversation**. That is why serving systems care so much about cache memory
 (PagedAttention, GQA, cache quantization).
 
 My measured cache matched the formula exactly (a test checks it).
@@ -249,18 +249,28 @@ load, a live per-token chart, results and the same-text checks.
 
 ## 9. Results
 
-| New tokens | No cache | With KV cache | Speed-up | Cache memory |
-|---|---|---|---|---|
-| 50 | 4.93 s | 2.10 s | **2.3×** | 4.43 MB |
-| 100 | 11.84 s | 4.02 s | **2.9×** | 7.95 MB |
-| 200 | 45.06 s | 10.23 s | **4.4×** | 14.98 MB |
-| 400 | 157.03 s | 20.75 s | **7.6×** | 29.04 MB |
+| New tokens | No cache: median (min–max) | With KV cache: median (min–max) | Speed-up: median (range) | Tokens in cache | Cache memory |
+|---|---|---|---|---|---|
+| 50 | 4.93 s (4.66–8.06) | 2.10 s (1.92–2.28) | **2.3×** (2.0–4.2×) | 63 | 4.6 MB |
+| 100 | 11.84 s (9.00–12.48) | 4.02 s (3.59–5.99) | **2.9×** (1.5–3.5×) | 113 | 8.3 MB |
+| 200 | 45.06 s (41.36–47.73) | 10.23 s (10.06–11.07) | **4.4×** (3.7–4.7×) | 213 | 15.7 MB |
+| 400 | 157.03 s (136.85–210.04) | 20.75 s (20.49–21.95) | **7.6×** (6.2–10.3×) | 413 | 30.4 MB |
 
-Median of 3 runs. Same text with and without the cache at every length.
+- 3 timed runs per setting. Speed-up range: slowest no-cache run ÷ fastest cached run, and the
+  other way round.
+- Tokens in cache = 14 prompt tokens + new tokens − 1 (the last token is never fed back in).
+  Memory = tokens × 73,728 bytes, in MB (10⁶ bytes); `results.csv` lists the same values in MiB
+  (for example 29.04 MiB = 30.4 MB).
+- Same text with and without the cache at every length.
 
-**Time per token** (median by position, from `per_token.csv`):
+**Time per token** (by position, from `per_token.csv`):
 - **No cache:** grows as the text grows, from about 100 ms early on to about 600 ms near token 400.
-- **With cache:** stays about 20–60 ms the whole way (median about 40 ms, a few noise spikes).
+- **With cache:** median about 40 ms per token; the average is 52 ms at 400 tokens, including a
+  few noise spikes.
+- **The cached speed also drops slowly as the text grows:** 24.9 tokens/s at 100 tokens, 19.3 at
+  400. Two reasons: attention has more cached tokens to read, and my cache grows with
+  `torch.cat`, which copies the whole cache on every step. Reserving the cache memory once
+  (preallocation) is the next step.
 
 ---
 
@@ -268,11 +278,14 @@ Median of 3 runs. Same text with and without the cache at every length.
 1. **The cache's benefit grows with length.** 2.3× at 50 tokens, 7.6× at 400. Without a cache the
    work per token keeps growing; with it, the work per token stays about the same.
 2. **Even with the cache, a token still costs ~40 ms. Why?** To make one token, the CPU must still
-   read all ~500 MB of weights from memory. 500 MB in ~40 ms is roughly 12 GB/s, close to what
-   normal desktop memory can deliver. So decode is limited by **memory speed, not maths**.
-   (A rough estimate, not a separate measurement.) This is the "decode is memory-bound" idea.
+   read all ~500 MB of weights from memory. 500 MB in ~40 ms is roughly 12 GB/s, only about 30%
+   of what this machine's memory can deliver at best (about 42 GB/s for dual-channel DDR4-2666,
+   the i5-9500's maximum; a rough estimate, not a measurement). So on my CPU, memory speed is not
+   the only limit: the overhead of many small operations (12 layers, each split into small
+   matrix steps, plus Python) matters too. On big GPU servers, decode is clearly limited by
+   memory speed ("memory-bound"), which is why reading less memory per token matters so much there.
 3. **The output does not change.** The cache only removes repeated work. Same weights, same text.
-4. **Memory grows with every token.** Exactly 72 KB per token for GPT-2 small.
+4. **Memory grows with every token.** Exactly 73,728 bytes (72 KiB) per token for GPT-2 small.
 5. **Benchmarks on a busy PC lie.** My first run was disturbed by other programs: its cached
    400-token run came out faster than its 200-token run, which cannot be right, and it suggested a
    17× speed-up. I threw it away and re-ran. Even the clean run varied: the three no-cache
@@ -287,7 +300,7 @@ Median of 3 runs. Same text with and without the cache at every length.
 |---|---|
 | OpenAI's weights did not fit my layers: Hugging Face stores four of them as `Conv1D`, shaped `(in, out)`, but `nn.Linear` expects `(out, in)` | Transpose those four weights when loading; the loader stops with a clear error on any wrong name or shape |
 | **The main bug:** with the cache on, it crashed with `size of tensor a (10) must match ... b (5)` | Each layer was reading **layer 0's** cache length, which already included this step's new tokens. Now each layer counts from its own K: `past = k.shape[2] - T` |
-| The first benchmark gave impossible numbers (400 cached tokens faster than 200) because other programs were using the CPU | Threw the run away and re-ran on a quieter machine: **7.6×**, not the 17× the noisy run suggested |
+| The first benchmark gave impossible numbers (400 cached tokens faster than 200) because other programs were using the CPU | Threw the run away and re-ran with fewer apps open (CPU load still reached 8.72): **7.6×**, not the 17× the noisy run suggested |
 | Repeats varied a lot (400 tokens without cache: 136.85 s to 210.04 s) | Report the **median** of 3 runs and save the machine's load with the results |
 
 ---
@@ -349,7 +362,7 @@ print(tok.decode(model.generate(idx, 20, use_cache=True)[0]))
    newest token, once.
 3. Without: each token gets slower, roughly in proportion to the text length. With: each token
    costs about the same, but memory grows by a fixed amount per token.
-4. 2 × 32 × 8 × 128 × 2 = 131,072 bytes = 128 KB per token.
+4. 2 × 32 × 8 × 128 × 2 = 131,072 bytes = 128 KiB per token.
 5. Prefill processes the whole prompt at once (maths-heavy). Decode makes one token at a time
    (limited by reading weights and cache from memory).
 6. The cached K and V are exactly the numbers that would be recomputed; nothing new is invented.
