@@ -6,5 +6,5 @@ __pycache__/
 *.safetensors
 .ipynb_checkpoints/
 .pytest_cache/
-kv-cache-from-scratch/dashboard/progress.json
-kv-cache-from-scratch/dashboard/progress.tmp
+gpt2-kv-cache/benchmark/dashboard/progress.json
+gpt2-kv-cache/benchmark/dashboard/progress.tmp

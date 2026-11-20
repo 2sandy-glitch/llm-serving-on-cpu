@@ -1,4 +1,4 @@
-# KV cache from scratch
+# GPT-2 KV cache, built and measured on a CPU
 
 > A learning project: I wanted to really understand the **KV cache**, the trick that makes every
 > LLM write text fast. So I wrote GPT-2 myself in plain PyTorch, loaded OpenAI's real weights into
@@ -7,7 +7,7 @@
 **Result:** with my KV cache, writing 400 tokens took **20.75 s instead of 157.03 s (7.6× faster)**,
 with exactly the same text. The cache cost **73,728 bytes (72 KiB) of memory per token**.
 
-![Benchmark chart: time per token and total time, with and without the KV cache](chart.png)
+![Benchmark chart: time per token and total time, with and without the KV cache](results/chart.png)
 
 ---
 
@@ -41,8 +41,8 @@ with exactly the same text. The cache cost **73,728 bytes (72 KiB) of memory per
 
 | Part | Who made it |
 |---|---|
-| The model code: embeddings, attention, MLP, 12 blocks, output layer | Me (`model.py`, plain PyTorch, no Hugging Face model code) |
-| The KV cache and the generation loop | Me (`model.py`) |
+| The model code: embeddings, attention, MLP, 12 blocks, output layer | Me (`gpt2_kv/model.py`, plain PyTorch, no Hugging Face model code) |
+| The KV cache and the generation loop | Me (`gpt2_kv/model.py`) |
 | The tests, the benchmark, the live dashboard | Me |
 | The trained weights (124 million numbers) | OpenAI's GPT-2 small, downloaded through Hugging Face |
 | Hugging Face's own GPT-2 | Used only in the tests, as the answer key |
@@ -152,14 +152,26 @@ My measured cache matched the formula exactly (a test checks it).
 
 ## 6. What I built
 
-| File | What it does |
+```
+gpt2-kv-cache/
+├── gpt2_kv/
+│   ├── model.py          GPT-2 small, written by hand, with the KV cache
+│   └── load_weights.py   copies OpenAI's weights into my model
+├── tests/
+│   └── test_gpt2.py      8 correctness tests (pytest)
+├── benchmark/
+│   ├── run.py            times generation with and without the cache, saves results and the chart
+│   └── dashboard/        a local live page to watch the benchmark while it runs
+├── results/              results.csv, per_token.csv, environment.json, chart.png
+└── images/               screenshots for this README
+```
+
+| Folder | Open it to see |
 |---|---|
-| [`model.py`](model.py) | GPT-2 small from scratch, with the KV cache |
-| [`load_weights.py`](load_weights.py) | Copies OpenAI's weights into my model |
-| [`test_gpt2.py`](test_gpt2.py) | 8 correctness tests (pytest) |
-| [`benchmark.py`](benchmark.py) | Times generation with and without the cache, saves results and the chart |
-| [`dashboard/`](dashboard/) | A local live page to watch the benchmark while it runs |
-| `results.csv`, `per_token.csv`, `environment.json`, `chart.png` | My numbers and the machine they came from |
+| [`gpt2_kv/`](gpt2_kv/) | The model and the cache: [`model.py`](gpt2_kv/model.py), [`load_weights.py`](gpt2_kv/load_weights.py) |
+| [`tests/`](tests/) | How correctness is checked: [`test_gpt2.py`](tests/test_gpt2.py) |
+| [`benchmark/`](benchmark/) | How it was measured: [`run.py`](benchmark/run.py), [`dashboard/`](benchmark/dashboard/) |
+| [`results/`](results/) | My numbers and the machine they came from |
 
 ### The model
 ```
@@ -216,7 +228,7 @@ immediately, which is why I wrote the tests before the benchmark.
 ---
 
 ## 7. How I know it is correct
-`uv run pytest kv-cache-from-scratch` runs 8 tests:
+`uv run pytest` (from `gpt2-kv-cache/`) runs 8 tests:
 
 | Test | What it proves |
 |---|---|
@@ -238,7 +250,7 @@ With OpenAI's weights, my model writes: *"The cat sat on the floor, and the cat 
 - **Settings:** 50, 100, 200 and 400 new tokens, with and without the cache
 - **Method:** 1 warm-up run (not counted), then 3 timed runs per setting; I report the **median**
 - **Timed:** only the model passes, not loading, tokenising or printing
-- Everything about the run is saved in [`environment.json`](environment.json)
+- Everything about the run is saved in [`environment.json`](results/environment.json)
 
 I also built a small **live dashboard** to watch the benchmark as it ran: progress, time left, CPU
 load, a live per-token chart, results and the same-text checks.
@@ -259,11 +271,11 @@ load, a live per-token chart, results and the same-text checks.
 - 3 timed runs per setting. Speed-up range: slowest no-cache run ÷ fastest cached run, and the
   other way round.
 - Tokens in cache = 14 prompt tokens + new tokens − 1 (the last token is never fed back in).
-  Memory = tokens × 73,728 bytes, in MB (10⁶ bytes); `results.csv` lists the same values in MiB
+  Memory = tokens × 73,728 bytes, in MB (10⁶ bytes); `results/results.csv` lists the same values in MiB
   (for example 29.04 MiB = 30.4 MB).
 - Same text with and without the cache at every length.
 
-**Time per token** (by position, from `per_token.csv`):
+**Time per token** (by position, from `results/per_token.csv`):
 - **No cache:** grows as the text grows, from about 100 ms early on to about 600 ms near token 400.
 - **With cache:** median about 40 ms per token; the average is 52 ms at 400 tokens, including a
   few noise spikes.
@@ -323,19 +335,20 @@ on first run.
 ```bash
 git clone https://github.com/2sandy-glitch/llm-serving-on-cpu.git
 cd llm-serving-on-cpu
-uv sync                                                   # Python 3.12 + libraries
+uv sync                                    # Python 3.12 + libraries
+cd gpt2-kv-cache
 
-uv run pytest kv-cache-from-scratch                       # 8 correctness tests
-uv run python kv-cache-from-scratch/benchmark.py          # ~15 minutes on a 6-core CPU
+uv run pytest                              # 8 correctness tests
+uv run python -m benchmark.run             # ~15 minutes on a 6-core CPU
 
 # optional, in a second terminal: watch it live at http://localhost:8765
-uv run python kv-cache-from-scratch/dashboard/serve.py
+uv run python benchmark/dashboard/serve.py
 ```
 
-Try the model in Python:
+Try the model in Python (from inside `gpt2-kv-cache/`):
 ```python
 from transformers import GPT2TokenizerFast
-from load_weights import load_gpt2          # run from inside kv-cache-from-scratch/
+from gpt2_kv.load_weights import load_gpt2
 
 tok = GPT2TokenizerFast.from_pretrained("gpt2")
 model = load_gpt2()

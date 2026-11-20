@@ -1,14 +1,14 @@
 """Measure our GPT-2 with and without our KV cache on the CPU.
 
-Run: uv run python kv-cache-from-scratch/benchmark.py
-Watch it live (optional, in another terminal): uv run python kv-cache-from-scratch/dashboard/serve.py
+Run from gpt2-kv-cache/:       uv run python -m benchmark.run
+Watch it live (optional, in another terminal): uv run python benchmark/dashboard/serve.py
 
-Writes, next to this file:
-  results.csv          total time and tokens/sec for each setting (median of the timed runs)
-  per_token.csv        time for each new token by its position (longest setting)
-  environment.json     the machine, versions and settings these numbers came from
-  chart.png            the two charts used in the README and the post
-  dashboard/progress.json   live progress for the dashboard (not committed)
+Writes:
+  results/results.csv        total time and tokens/sec for each setting (median of the timed runs)
+  results/per_token.csv      time for each new token by its position (longest setting)
+  results/environment.json   the machine, versions and settings these numbers came from
+  results/chart.png          the two charts used in the README
+  benchmark/dashboard/progress.json   live progress for the dashboard (not committed)
 """
 
 import csv
@@ -28,10 +28,11 @@ import torch
 import transformers
 from transformers import GPT2TokenizerFast
 
-from load_weights import load_gpt2
-from model import KVCache
+from gpt2_kv.load_weights import load_gpt2
+from gpt2_kv.model import KVCache
 
 HERE = Path(__file__).parent
+RESULTS = HERE.parent / "results"
 PROMPT = "In a small village by the sea, there lived an old fisherman who"
 NEW_TOKENS = [50, 100, 200, 400]
 MODES = ["no_cache", "with_cache"]
@@ -64,7 +65,7 @@ def timed_generate(model, idx, max_new_tokens, use_cache, on_step=None):
 
 
 class LiveProgress:
-    """Writes dashboard/progress.json while the benchmark runs. Only for watching; it never
+    """Writes benchmark/dashboard/progress.json while the benchmark runs. Only for watching; it never
     changes what is measured (the file is written outside the timed part of each step)."""
 
     def __init__(self, prompt_tokens, previous):
@@ -186,7 +187,7 @@ def read_previous_results():
     """Totals from the last run, used only to estimate time left."""
     previous = {}
     try:
-        with open(HERE / "results.csv") as f:
+        with open(RESULTS / "results.csv") as f:
             for row in csv.DictReader(f):
                 previous[(row["mode"], int(row["new_tokens"]))] = float(row["total_s"])
     except (OSError, KeyError, ValueError):
@@ -251,12 +252,12 @@ def main():
             live.write(force=True)
             raise AssertionError(f"text differs with and without the cache at {n} tokens")
 
-    with open(HERE / "results.csv", "w", newline="") as f:
+    with open(RESULTS / "results.csv", "w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=rows[0].keys())
         writer.writeheader()
         writer.writerows(rows)
 
-    with open(HERE / "per_token.csv", "w", newline="") as f:
+    with open(RESULTS / "per_token.csv", "w", newline="") as f:
         writer = csv.writer(f)
         writer.writerow(["position", "no_cache_ms", "with_cache_ms"])
         for i, (a, b) in enumerate(zip(per_token["no_cache"], per_token["with_cache"]), start=1):
@@ -283,7 +284,7 @@ def main():
         statistic="median",
         kv_bytes_per_token_formula=2 * c.n_layer * c.n_head * (c.n_embd // c.n_head) * 4,
     )
-    (HERE / "environment.json").write_text(json.dumps(environment, indent=2) + "\n")
+    (RESULTS / "environment.json").write_text(json.dumps(environment, indent=2) + "\n")
 
     # Charts: time per token by position, and total time per setting.
     fig, (left, right) = plt.subplots(1, 2, figsize=(12, 4.5))
@@ -307,7 +308,7 @@ def main():
 
     fig.suptitle(f"GPT-2 small from scratch on {environment['cpu']}, {THREADS} threads, no GPU")
     fig.tight_layout()
-    fig.savefig(HERE / "chart.png", dpi=150)
+    fig.savefig(RESULTS / "chart.png", dpi=150)
 
     live.state["status"] = "done"
     live.state["current"] = None

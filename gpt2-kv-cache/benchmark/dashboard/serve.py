@@ -1,6 +1,6 @@
 """Serve the live benchmark dashboard on this PC only.
 
-Run: uv run python kv-cache-from-scratch/dashboard/serve.py
+Run from gpt2-kv-cache/: uv run python benchmark/dashboard/serve.py
 Open: http://localhost:8765
 """
 

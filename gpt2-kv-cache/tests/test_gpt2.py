@@ -1,11 +1,11 @@
-"""Correctness checks. Run: uv run pytest kv-cache-from-scratch"""
+"""Correctness checks. Run from gpt2-kv-cache/: uv run pytest"""
 
 import pytest
 import torch
 from transformers import GPT2LMHeadModel, GPT2TokenizerFast
 
-from load_weights import load_gpt2
-from model import KVCache
+from gpt2_kv.load_weights import load_gpt2
+from gpt2_kv.model import KVCache
 
 PROMPTS = [
     "The cat sat on the",
