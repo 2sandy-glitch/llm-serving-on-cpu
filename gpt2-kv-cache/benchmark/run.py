@@ -29,7 +29,7 @@ import transformers
 from transformers import GPT2TokenizerFast
 
 from gpt2_kv.load_weights import load_gpt2
-from gpt2_kv.model import KVCache
+from gpt2_kv.kv_cache import KVCache
 
 HERE = Path(__file__).parent
 RESULTS = HERE.parent / "results"

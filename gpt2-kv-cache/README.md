@@ -42,7 +42,7 @@ with exactly the same text. The cache cost **73,728 bytes (72 KiB) of memory per
 | Part | Who made it |
 |---|---|
 | The model code: embeddings, attention, MLP, 12 blocks, output layer | Me (`gpt2_kv/model.py`, plain PyTorch, no Hugging Face model code) |
-| The KV cache and the generation loop | Me (`gpt2_kv/model.py`) |
+| The KV cache and cached generation | Me, all in one file: `gpt2_kv/kv_cache.py` |
 | The tests, the benchmark, the live dashboard | Me |
 | The trained weights (124 million numbers) | OpenAI's GPT-2 small, downloaded through Hugging Face |
 | Hugging Face's own GPT-2 | Used only in the tests, as the answer key |
@@ -155,10 +155,12 @@ My measured cache matched the formula exactly (a test checks it).
 ```
 gpt2-kv-cache/
 ├── gpt2_kv/
-│   ├── model.py          GPT-2 small, written by hand, with the KV cache
+│   ├── kv_cache.py       the KV cache: KVCache + generate_with_cache()
+│   ├── model.py          GPT-2 small, written by hand (3 marked hooks for the cache)
 │   └── load_weights.py   copies OpenAI's weights into my model
 ├── tests/
-│   └── test_gpt2.py      8 correctness tests (pytest)
+│   ├── test_gpt2.py      model tests: matches Hugging Face (3)
+│   └── test_kv_cache.py  cache tests: same text, exact maths, memory (5)
 ├── benchmark/
 │   ├── run.py            times generation with and without the cache, saves results and the chart
 │   └── dashboard/        a local live page to watch the benchmark while it runs
@@ -168,8 +170,8 @@ gpt2-kv-cache/
 
 | Folder | Open it to see |
 |---|---|
-| [`gpt2_kv/`](gpt2_kv/) | The model and the cache: [`model.py`](gpt2_kv/model.py), [`load_weights.py`](gpt2_kv/load_weights.py) |
-| [`tests/`](tests/) | How correctness is checked: [`test_gpt2.py`](tests/test_gpt2.py) |
+| [`gpt2_kv/`](gpt2_kv/) | The cache: [`kv_cache.py`](gpt2_kv/kv_cache.py). The model: [`model.py`](gpt2_kv/model.py), [`load_weights.py`](gpt2_kv/load_weights.py) |
+| [`tests/`](tests/) | How correctness is checked: [`test_gpt2.py`](tests/test_gpt2.py), [`test_kv_cache.py`](tests/test_kv_cache.py) |
 | [`benchmark/`](benchmark/) | How it was measured: [`run.py`](benchmark/run.py), [`dashboard/`](benchmark/dashboard/) |
 | [`results/`](results/) | My numbers and the machine they came from |
 
@@ -190,10 +192,14 @@ Face stores four of GPT-2's layers as `Conv1D`, with weights shaped `(in, out)`,
 transformers 5.23).
 
 ### The cache: the important part
+All the cache code is in one file, [`gpt2_kv/kv_cache.py`](gpt2_kv/kv_cache.py), kept apart from the
+model. It has two pieces.
+
+**1. `KVCache`** stores each layer's K and V and grows by one token per step:
 ```python
 class KVCache:
     def update(self, layer, k, v):
-        """Append the new tokens' K and V, return K and V for ALL tokens so far."""
+        """Add the new tokens' K and V to this layer's slot, return K and V for ALL tokens so far."""
         if self.k[layer] is not None:
             k = torch.cat([self.k[layer], k], dim=2)   # dim 2 = the "tokens" dimension
             v = torch.cat([self.v[layer], v], dim=2)
@@ -201,19 +207,27 @@ class KVCache:
         return k, v
 ```
 
-Inside attention, only the new tokens come in; the cache supplies the rest:
+**2. `generate_with_cache()`** reads the prompt once (prefill), then feeds only the newest token
+(decode):
 ```python
-q, k, v = self.c_attn(x).split(C, dim=2)        # x = only the NEW tokens
-...
-k, v = cache.update(self.layer, k, v)           # now K, V cover every token so far
-past = k.shape[2] - T                           # how many tokens were already cached
-scores = (q @ k.transpose(-2, -1)) / math.sqrt(self.head_dim)
+cache = KVCache(model.config.n_layer)
+logits = model(idx, cache)                      # prefill: whole prompt, fills the cache
+for step in range(max_new_tokens):
+    next_id = logits[:, -1, :].argmax(dim=-1, keepdim=True)
+    idx = torch.cat([idx, next_id], dim=1)
+    logits = model(next_id, cache)              # decode: only 1 new token goes in
 ```
 
-And positions must continue after the cached tokens, not restart at 0:
-```python
-pos = torch.arange(past, past + T)
-```
+**The model only needs 3 small hooks** to use the cache. Each is marked `KV cache hook` in
+[`model.py`](gpt2_kv/model.py):
+
+| Hook | Where | What it does |
+|---|---|---|
+| 1 | Attention | Add the new K and V to the cache, then attend over every cached token: `k, v = cache.update(self.layer, k, v)` and `past = k.shape[2] - T` |
+| 2 | Causal mask | Shift the mask by `past`, so new token *i* sits at position `past + i` |
+| 3 | Positions | Continue after the cached tokens instead of restarting at 0: `pos = torch.arange(past, past + T)` |
+
+Without a cache, all three hooks do nothing (`past` is 0), and the model is plain GPT-2.
 
 ### A bug I hit (and what it taught me)
 My first version asked the cache "how many tokens do you hold?" using **layer 0's** cache. But
@@ -228,7 +242,7 @@ immediately, which is why I wrote the tests before the benchmark.
 ---
 
 ## 7. How I know it is correct
-`uv run pytest` (from `gpt2-kv-cache/`) runs 8 tests:
+`uv run pytest` (from `gpt2-kv-cache/`) runs 8 tests: 3 for the model, 5 for the cache.
 
 | Test | What it proves |
 |---|---|
@@ -348,12 +362,14 @@ uv run python benchmark/dashboard/serve.py
 Try the model in Python (from inside `gpt2-kv-cache/`):
 ```python
 from transformers import GPT2TokenizerFast
+from gpt2_kv.kv_cache import generate_with_cache
 from gpt2_kv.load_weights import load_gpt2
 
 tok = GPT2TokenizerFast.from_pretrained("gpt2")
 model = load_gpt2()
 idx = tok("The cat sat on the", return_tensors="pt").input_ids
-print(tok.decode(model.generate(idx, 20, use_cache=True)[0]))
+print(tok.decode(generate_with_cache(model, idx, 20)[0]))   # with my KV cache
+print(tok.decode(model.generate(idx, 20)[0]))                # without: same text, slower
 ```
 
 ---

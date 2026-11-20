@@ -1,5 +1,8 @@
 """GPT-2 small written from scratch in plain PyTorch (nanoGPT style).
 
+The KV cache lives in kv_cache.py. This file only has three small hooks where the cache plugs in;
+search for "KV cache hook" to see all three.
+
 Shape names used in comments:
   B = batch size, T = number of tokens, C = embedding size (768),
   H = number of heads (12), D = size of one head (C / H = 64).
@@ -12,6 +15,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from gpt2_kv.kv_cache import KVCache
+
 
 @dataclass
 class GPT2Config:
@@ -21,34 +26,6 @@ class GPT2Config:
     n_head: int = 12  # attention heads per block
     n_embd: int = 768  # numbers used to describe one token
     layer_norm_eps: float = 1e-5
-
-
-class KVCache:
-    """Keeps every layer's Keys and Values from earlier steps so they are never recomputed.
-
-    For each layer we store K and V shaped (B, H, tokens so far, D). Each step appends the new
-    tokens along the "tokens" dimension (dim 2).
-    """
-
-    def __init__(self, n_layer: int):
-        self.k: list[torch.Tensor | None] = [None] * n_layer
-        self.v: list[torch.Tensor | None] = [None] * n_layer
-
-    def __len__(self) -> int:
-        """How many tokens are cached (the same in every layer)."""
-        return 0 if self.k[0] is None else self.k[0].shape[2]
-
-    def update(self, layer: int, k: torch.Tensor, v: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-        """Append the new tokens' K and V, and return K and V for ALL tokens so far."""
-        if self.k[layer] is not None:
-            k = torch.cat([self.k[layer], k], dim=2)
-            v = torch.cat([self.v[layer], v], dim=2)
-        self.k[layer], self.v[layer] = k, v
-        return k, v
-
-    def nbytes(self) -> int:
-        """Memory the cache really uses, in bytes."""
-        return sum(t.numel() * t.element_size() for t in self.k + self.v if t is not None)
 
 
 class CausalSelfAttention(nn.Module):
@@ -75,19 +52,20 @@ class CausalSelfAttention(nn.Module):
         k = k.view(B, T, self.n_head, self.head_dim).transpose(1, 2)
         v = v.view(B, T, self.n_head, self.head_dim).transpose(1, 2)
 
-        # THE KV CACHE: add the new K and V to the saved ones, then attend over all of them.
-        # Q is never cached: only the new tokens ask questions.
+        # KV cache hook 1/3: add the new K and V to this layer's cache, then attend over all of
+        # them. Q is never cached: only the new tokens ask questions.
         if cache is not None:
             k, v = cache.update(self.layer, k, v)  # now (B, H, past + T, D)
         # Count earlier tokens from THIS layer's K. (len(cache) reads layer 0, which has
-        # already added this step's tokens by the time later layers run.)
+        # already added this step's tokens by the time later layers run.) Without a cache, 0.
         past = k.shape[2] - T
 
         # How well each new Query matches every Key: (B, H, T, past + T).
         scores = (q @ k.transpose(-2, -1)) / math.sqrt(self.head_dim)
 
-        # Causal mask: new token i sits at position past + i and may not look beyond it.
-        # During decode (T = 1) nothing is in the future, so the mask blocks nothing.
+        # Causal mask: a token may not look at tokens after it.
+        # KV cache hook 2/3: new token i sits at position past + i, so the mask is shifted by
+        # `past`. During decode (T = 1) nothing is in the future, so it blocks nothing.
         future = torch.ones(T, past + T, dtype=torch.bool, device=x.device).triu(diagonal=past + 1)
         scores = scores.masked_fill(future, float("-inf"))
 
@@ -151,10 +129,11 @@ class GPT2(nn.Module):
         With a cache, idx holds only the NEW tokens; earlier ones are already in the cache.
         """
         B, T = idx.shape
+        # KV cache hook 3/3: positions continue after the cached tokens.
+        # Starting again at 0 here is the classic bug.
         past = 0 if cache is None else len(cache)
         if past + T > self.config.block_size:
             raise ValueError(f"text is {past + T} tokens; GPT-2 reads at most {self.config.block_size}")
-        # Positions continue after the cached tokens. Starting again at 0 here is the classic bug.
         pos = torch.arange(past, past + T, device=idx.device)
         x = self.transformer.wte(idx) + self.transformer.wpe(pos)
         for block in self.transformer.h:
@@ -163,24 +142,11 @@ class GPT2(nn.Module):
         return self.lm_head(x)
 
     @torch.no_grad()
-    def generate(self, idx: torch.Tensor, max_new_tokens: int, use_cache: bool = False) -> torch.Tensor:
-        """Greedy generation.
-
-        use_cache=False: re-reads the whole text at every step (the slow way).
-        use_cache=True:  reads the prompt once (prefill), then feeds only the newest token (decode).
-        """
-        if not use_cache:
-            for _ in range(max_new_tokens):
-                logits = self(idx)
-                next_id = logits[:, -1, :].argmax(dim=-1, keepdim=True)
-                idx = torch.cat([idx, next_id], dim=1)
-            return idx
-
-        cache = KVCache(self.config.n_layer)
-        logits = self(idx, cache)  # prefill: the whole prompt, fills the cache
-        for step in range(max_new_tokens):
+    def generate(self, idx: torch.Tensor, max_new_tokens: int) -> torch.Tensor:
+        """Greedy generation WITHOUT a cache: re-reads the whole text at every step (the slow way).
+        For the fast way, see generate_with_cache() in kv_cache.py."""
+        for _ in range(max_new_tokens):
+            logits = self(idx)
             next_id = logits[:, -1, :].argmax(dim=-1, keepdim=True)
             idx = torch.cat([idx, next_id], dim=1)
-            if step < max_new_tokens - 1:  # the last token needs no further pass
-                logits = self(next_id, cache)  # decode: only the 1 new token goes in
         return idx
