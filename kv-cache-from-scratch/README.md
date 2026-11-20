@@ -24,7 +24,7 @@ with exactly the same text. The cache cost **72 KB of memory per token**.
 10. [What I learned](#10-what-i-learned)
 11. [Limits](#11-limits)
 12. [Run it yourself](#12-run-it-yourself)
-13. [Check yourself: interview questions](#13-check-yourself-interview-questions)
+13. [Check yourself](#13-check-yourself)
 14. [Reading and credits](#14-reading-and-credits)
 
 ---
@@ -122,7 +122,7 @@ step 3   [The cat sat on the floor ,] → model                      [,] → mod
 ...      input keeps growing                     input is always 1 token
 ```
 
-This gives two phases, a common interview topic:
+This splits generation into two phases:
 - **Prefill:** the whole prompt goes in at once and fills the cache. Lots of maths.
 - **Decode:** one token per step, reading the cache. Limited by how fast memory can be read.
 
@@ -320,7 +320,7 @@ print(tok.decode(model.generate(idx, 20, use_cache=True)[0]))
 
 ---
 
-## 13. Check yourself: interview questions
+## 13. Check yourself
 1. What do Q, K and V mean, in plain words?
 2. Why can K and V be cached, but not Q?
 3. What happens to speed and memory as the text grows, with and without a cache?
@@ -371,7 +371,6 @@ print(tok.decode(model.generate(idx, 20, use_cache=True)[0]))
 | 4 | My own KV cache, same text with and without | ✅ 8 tests pass |
 | 5 | Measure | ✅ 7.6× faster at 400 tokens |
 | 6 | Write up (this README) | ✅ |
-| 7 | LinkedIn post | Next |
 
 ## Rules
 - Claude writes the code, I review and approve every step.
