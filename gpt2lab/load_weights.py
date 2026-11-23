@@ -3,7 +3,7 @@
 import torch
 from transformers import GPT2LMHeadModel
 
-from gpt2_kv.model import GPT2, GPT2Config
+from gpt2lab.model import GPT2, GPT2Config
 
 # Hugging Face's GPT-2 stores these four layers as "Conv1D", with weights shaped (in, out).
 # PyTorch's nn.Linear wants (out, in), so they must be transposed.

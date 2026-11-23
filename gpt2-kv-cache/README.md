@@ -41,8 +41,8 @@ with exactly the same text. The cache cost **73,728 bytes (72 KiB) of memory per
 
 | Part | Who made it |
 |---|---|
-| The model code: embeddings, attention, MLP, 12 blocks, output layer | Me (`gpt2_kv/model.py`, plain PyTorch, no Hugging Face model code) |
-| The KV cache and cached generation | Me, all in one file: `gpt2_kv/kv_cache.py` |
+| The model code: embeddings, attention, MLP, 12 blocks, output layer | Me (`gpt2lab/model.py`, plain PyTorch, no Hugging Face model code) |
+| The KV cache and cached generation | Me, all in one file: `gpt2lab/kv_cache.py` |
 | The tests, the benchmark, the live dashboard | Me |
 | The trained weights (124 million numbers) | OpenAI's GPT-2 small, downloaded through Hugging Face |
 | Hugging Face's own GPT-2 | Used only in the tests, as the answer key |
@@ -153,24 +153,25 @@ My measured cache matched the formula exactly (a test checks it).
 ## 6. What I built
 
 ```
-gpt2-kv-cache/
-├── gpt2_kv/
-│   ├── kv_cache.py       the KV cache: KVCache + generate_with_cache()
-│   ├── model.py          GPT-2 small, written by hand (3 marked hooks for the cache)
-│   └── load_weights.py   copies OpenAI's weights into my model
-├── tests/
-│   ├── test_gpt2.py      model tests: matches Hugging Face (3)
-│   └── test_kv_cache.py  cache tests: same text, exact maths, memory (5)
-├── benchmark/
-│   ├── run.py            times generation with and without the cache, saves results and the chart
-│   └── dashboard/        a local live page to watch the benchmark while it runs
-├── results/              results.csv, per_token.csv, environment.json, chart.png
-└── images/               screenshots for this README
+llm-serving-on-cpu/
+├── gpt2lab/                  shared code, used by every experiment in this repo
+│   ├── kv_cache.py           the KV cache: KVCache + generate_with_cache()
+│   ├── model.py              GPT-2, written by hand (3 marked hooks for the cache)
+│   └── load_weights.py       copies OpenAI's weights into my model
+└── gpt2-kv-cache/            this experiment
+    ├── tests/
+    │   ├── test_gpt2.py      model tests: matches Hugging Face (3)
+    │   └── test_kv_cache.py  cache tests: same text, exact maths, memory (5)
+    ├── benchmark/
+    │   ├── run.py            times generation with and without the cache, saves results and the chart
+    │   └── dashboard/        a local live page to watch the benchmark while it runs
+    ├── results/              results.csv, per_token.csv, environment.json, chart.png
+    └── images/               screenshots for this README
 ```
 
 | Folder | Open it to see |
 |---|---|
-| [`gpt2_kv/`](gpt2_kv/) | The cache: [`kv_cache.py`](gpt2_kv/kv_cache.py). The model: [`model.py`](gpt2_kv/model.py), [`load_weights.py`](gpt2_kv/load_weights.py) |
+| [`gpt2lab/`](../gpt2lab/) | The cache: [`kv_cache.py`](../gpt2lab/kv_cache.py). The model: [`model.py`](../gpt2lab/model.py), [`load_weights.py`](../gpt2lab/load_weights.py) |
 | [`tests/`](tests/) | How correctness is checked: [`test_gpt2.py`](tests/test_gpt2.py), [`test_kv_cache.py`](tests/test_kv_cache.py) |
 | [`benchmark/`](benchmark/) | How it was measured: [`run.py`](benchmark/run.py), [`dashboard/`](benchmark/dashboard/) |
 | [`results/`](results/) | My numbers and the machine they came from |
@@ -192,7 +193,7 @@ Face stores four of GPT-2's layers as `Conv1D`, with weights shaped `(in, out)`,
 transformers 5.23).
 
 ### The cache: the important part
-All the cache code is in one file, [`gpt2_kv/kv_cache.py`](gpt2_kv/kv_cache.py), kept apart from the
+All the cache code is in one file, [`gpt2lab/kv_cache.py`](../gpt2lab/kv_cache.py), kept apart from the
 model. It has two pieces.
 
 **1. `KVCache`** stores each layer's K and V and grows by one token per step:
@@ -219,7 +220,7 @@ for step in range(max_new_tokens):
 ```
 
 **The model only needs 3 small hooks** to use the cache. Each is marked `KV cache hook` in
-[`model.py`](gpt2_kv/model.py):
+[`model.py`](../gpt2lab/model.py):
 
 | Hook | Where | What it does |
 |---|---|---|
@@ -362,8 +363,8 @@ uv run python benchmark/dashboard/serve.py
 Try the model in Python (from inside `gpt2-kv-cache/`):
 ```python
 from transformers import GPT2TokenizerFast
-from gpt2_kv.kv_cache import generate_with_cache
-from gpt2_kv.load_weights import load_gpt2
+from gpt2lab.kv_cache import generate_with_cache
+from gpt2lab.load_weights import load_gpt2
 
 tok = GPT2TokenizerFast.from_pretrained("gpt2")
 model = load_gpt2()

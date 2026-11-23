@@ -4,7 +4,7 @@ Run from gpt2-kv-cache/: uv run pytest"""
 import pytest
 import torch
 
-from gpt2_kv.kv_cache import KVCache, generate_with_cache
+from gpt2lab.kv_cache import KVCache, generate_with_cache
 
 PROMPTS = [
     "The cat sat on the",

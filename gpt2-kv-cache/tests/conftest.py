@@ -3,7 +3,7 @@
 import pytest
 from transformers import GPT2TokenizerFast
 
-from gpt2_kv.load_weights import load_gpt2
+from gpt2lab.load_weights import load_gpt2
 
 
 @pytest.fixture(scope="session")

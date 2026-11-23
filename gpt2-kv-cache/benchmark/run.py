@@ -28,8 +28,8 @@ import torch
 import transformers
 from transformers import GPT2TokenizerFast
 
-from gpt2_kv.load_weights import load_gpt2
-from gpt2_kv.kv_cache import KVCache
+from gpt2lab.load_weights import load_gpt2
+from gpt2lab.kv_cache import KVCache
 
 HERE = Path(__file__).parent
 RESULTS = HERE.parent / "results"
