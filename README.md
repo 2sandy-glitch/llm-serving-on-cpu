@@ -8,11 +8,19 @@ weights and my KV cache. Every experiment imports it instead of copying the mode
 
 Setup, once: `uv sync` (installs PyTorch for CPU and `gpt2lab`).
 
+The current series is **caching**: several caching techniques built into my own GPT-2, each
+measured on this CPU. Other experiments (weight quantization and more) come after it.
+
 | # | Experiment | Folder | Status |
 |---|---|---|---|
 | 1 | GPT-2 KV cache: own GPT-2 + own KV cache, cache on vs off | [gpt2-kv-cache/](gpt2-kv-cache/) | ✅ 7.6× faster at 400 tokens, 72 KiB per token |
 | 2 | Reserved KV cache: memory taken once, filled in place | [gpt2-static-kv-cache/](gpt2-static-kv-cache/) | ✅ cache update 50× cheaper at 1,000 tokens, same text |
-| 3 | Quantization: the same model at 16 / 8 / 4 bits | – | Next |
-| 4 | BitNet 1.58-bit on CPU | – | Planned |
-| 5 | Speculative decoding (draft + target) | – | Planned |
-| 6 | Prompt / prefix caching | – | Planned |
+| 3 | int8 KV cache: K and V stored in 8 bits with scales | – | Next |
+| 4 | Prefix caching: reuse the K/V of a shared prompt start | – | Planned |
+| 5 | Cache-aware routing: send requests to the worker that has their prefix | – | Planned |
+| 6 | Paged KV cache (optional) | – | Maybe |
+| 7 | KV cache eviction, H2O (optional) | – | Maybe |
+| 8 | Tiered offloading, RAM → disk (optional) | – | Later |
+
+After the caching series: weight quantization (16 / 8 / 4 bits), BitNet 1.58-bit, speculative
+decoding.
