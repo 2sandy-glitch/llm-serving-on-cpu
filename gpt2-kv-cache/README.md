@@ -297,7 +297,7 @@ load, a live per-token chart, results and the same-text checks.
 - **The cached speed also drops slowly as the text grows:** 24.9 tokens/s at 100 tokens, 19.3 at
   400. Two reasons: attention has more cached tokens to read, and my cache grows with
   `torch.cat`, which copies the whole cache on every step. Reserving the cache memory once
-  (preallocation) is the next step.
+  (preallocation) is the next step: done in [gpt2-static-kv-cache](../gpt2-static-kv-cache/).
 
 ---
 
@@ -337,7 +337,8 @@ load, a live per-token chart, results and the same-text checks.
 - A desktop CPU with other programs running (CPU load 2.16 at the start, 8.72 at the end); the
   red line is spiky because of that.
 - My cache grows with `torch.cat`, which copies the whole cache every step. Real engines reserve the
-  memory once and fill it in place. A possible next step.
+  memory once and fill it in place: built and measured in
+  [gpt2-static-kv-cache](../gpt2-static-kv-cache/).
 - My attention is written out by hand for learning, not tuned for speed.
 - These numbers describe this setup only. GPU servers and bigger models will look different.
 
