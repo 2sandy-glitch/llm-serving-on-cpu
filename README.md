@@ -18,9 +18,9 @@ measured on this CPU. Other experiments (weight quantization and more) come afte
 | 3 | int8 KV cache: K and V stored in 8 bits with scales | [gpt2-kv-cache-int8/](gpt2-kv-cache-int8/) | ✅ 3.8× less memory per token, +0.016% perplexity |
 | 4 | Prefix caching: reuse the K/V of a shared prompt start | [gpt2-prefix-cache/](gpt2-prefix-cache/) | ✅ first token 13× sooner (458 → 35 ms) for a shared 584-token start |
 | 5 | Cache-aware routing: send requests to the worker that has their prefix | [gpt2-cache-aware-routing/](gpt2-cache-aware-routing/) | ✅ cache hit rate 18% → 90%, 5.4× more requests/s (simulated 4 workers) |
-| 6 | Paged KV cache (optional) | – | Maybe |
-| 7 | KV cache eviction, H2O (optional) | – | Maybe |
-| 8 | Tiered offloading, RAM → disk (optional) | – | Later |
+| 6 | Paged KV cache: memory handed out in small blocks as needed | [gpt2-paged-kv-cache/](gpt2-paged-kv-cache/) | ✅ 4.7× more requests in 512 MiB (7 → 33), waste 74% → 2.5% |
+| 7 | KV cache eviction (H2O): keep only the tokens that matter | – | Next |
+| 8 | Tiered offloading: move cold cache entries from RAM to disk | – | Planned |
 
 After the caching series: weight quantization (16 / 8 / 4 bits), BitNet 1.58-bit, speculative
 decoding.

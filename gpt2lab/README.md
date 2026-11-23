@@ -12,6 +12,7 @@ repo root installs it.
 | [`int8_kv_cache.py`](int8_kv_cache.py) | Quantized KV cache: K and V as int8 + scales, per token or per channel ([experiment](../gpt2-kv-cache-int8/)) |
 | [`prefix_cache.py`](prefix_cache.py) | Prefix caching: reuse stored K and V of a shared prompt start ([experiment](../gpt2-prefix-cache/)) |
 | [`routing.py`](routing.py) | Routing simulation: round robin, least loaded and cache-aware policies over workers with prefix stores ([experiment](../gpt2-cache-aware-routing/)) |
+| [`paged_kv_cache.py`](paged_kv_cache.py) | Paged KV cache: a shared pool of small blocks, a block table per request ([experiment](../gpt2-paged-kv-cache/)) |
 | [`bench.py`](bench.py) | The benchmark method every experiment uses: warm-up, 3 timed runs, median and min-max, `environment.json` |
 | [`perplexity.py`](perplexity.py) | Quality score on WikiText-2, used by every experiment that might change the output |
 

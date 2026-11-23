@@ -1,0 +1,4 @@
+scheme,requests_fit,memory_waste_pct,waste_of_requests_that_fit_pct
+"reserved (1,024 tokens each)",7,74.0,
+paged (16-token blocks),33,2.5,3.1
+ideal (exact tokens),33,0.0,
