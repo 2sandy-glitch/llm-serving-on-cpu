@@ -1,0 +1,31 @@
+{
+  "date": "2026-11-23T14:12:24",
+  "cpu": "Intel(R) Core(TM) i5-9500 CPU @ 3.00GHz",
+  "cpu_cores": 6,
+  "threads": 6,
+  "load_average_1min_at_start": 3.69,
+  "load_average_1min_at_end": 9.1,
+  "python": "3.12.13",
+  "torch": "2.15.0+cpu",
+  "transformers": "5.23.0",
+  "model": "GPT-2 small (124M), own implementation, OpenAI weights",
+  "dtype": "float32",
+  "simulation": "one CPU; each request measured on its worker's store; finish time = busiest worker's total",
+  "workers": 4,
+  "documents": 8,
+  "document_tokens": 500,
+  "questions": 12,
+  "requests": 96,
+  "store_size_documents": 2,
+  "store_sizes_swept": [
+    1,
+    2,
+    4
+  ],
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "cache_aware_max_lead_s": 1.0
+}

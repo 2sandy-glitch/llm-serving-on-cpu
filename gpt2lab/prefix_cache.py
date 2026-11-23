@@ -37,24 +37,31 @@ class PrefixStore:
     def __len__(self) -> int:
         return len(self.entries)
 
-    def lookup(self, ids: list[int]) -> tuple[tuple | None, int]:
-        """The stored prompt sharing the longest token prefix with `ids`, and that length."""
+    def lookup(self, ids: list[int], touch: bool = True) -> tuple[tuple | None, int]:
+        """The stored prompt sharing the longest token prefix with `ids`, and that length.
+        touch=False only looks (a router checking where a prompt is cached), without counting
+        it as a use."""
         best, best_len = None, 0
         for key in self.entries:
             n = shared_prefix_length(key, ids)
             if n > best_len:
                 best, best_len = key, n
-        if best is not None:
+        if best is not None and touch:
             self.entries.move_to_end(best)  # used just now
         return best, best_len
 
     def add(self, ids: list[int], cache: KVCache) -> None:
-        """Save the K and V of prompt `ids` from a cache that holds exactly that prompt."""
+        """Save the K and V of `ids` from a cache whose first len(ids) tokens are exactly `ids`."""
         key = tuple(ids)
         if key in self.entries:
             self.entries.move_to_end(key)
             return
-        self.entries[key] = ([k for k in cache.k], [v for v in cache.v])
+        n = len(ids)
+
+        def keep(t):  # copy when keeping only the start, so the rest of the prompt can be freed
+            return t if t.shape[2] == n else t[:, :, :n].clone()
+
+        self.entries[key] = ([keep(k) for k in cache.k], [keep(v) for v in cache.v])
         if len(self.entries) > self.max_entries:
             self.entries.popitem(last=False)  # drop the least recently used
 
@@ -72,11 +79,12 @@ def shared_prefix_length(a, b) -> int:
 
 
 @torch.no_grad()
-def prefill_with_prefix_cache(model, idx: torch.Tensor, store: PrefixStore, cache=None):
+def prefill_with_prefix_cache(model, idx: torch.Tensor, store: PrefixStore, cache=None, store_upto: int | None = None):
     """Prefill prompt idx (1, T), reusing stored K and V for its longest stored prefix.
 
     Returns (scores for the prompt's new tokens, the filled cache, how many tokens were reused).
-    The prompt itself is then saved in the store for later requests.
+    The prompt is then saved in the store for later requests: all of it, or only its first
+    `store_upto` tokens (a "cache breakpoint": keep the shared document, not each question).
     """
     ids = idx[0].tolist()
     if cache is None:
@@ -89,5 +97,5 @@ def prefill_with_prefix_cache(model, idx: torch.Tensor, store: PrefixStore, cach
             cache.update(layer, ks[layer][:, :, :reuse], vs[layer][:, :, :reuse])
     logits = model(idx[:, reuse:], cache)
     if isinstance(cache, KVCache):  # store needs plain K and V tensors: only the growing cache has them
-        store.add(ids, cache)
+        store.add(ids[:store_upto] if store_upto else ids, cache)
     return logits, cache, reuse

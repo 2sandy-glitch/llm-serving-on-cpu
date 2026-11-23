@@ -1,0 +1,10 @@
+seed,store_size,policy,hit_rate_pct,total_compute_s,finish_s,requests_per_s,balance,worker_requests
+0,2,round robin,17.3,47.3,13.4,7.16,1.13,24 24 24 24
+0,2,least loaded,29.5,42.28,11.1,8.65,1.05,20 24 25 27
+0,2,cache-aware,89.6,8.37,2.51,38.32,1.2,24 24 24 24
+1,2,round robin,18.3,53.22,13.48,7.12,1.01,24 24 24 24
+1,2,least loaded,14.3,51.8,13.19,7.28,1.02,25 22 25 24
+1,2,cache-aware,89.6,8.43,2.23,43.06,1.06,24 24 24 24
+2,2,round robin,20.4,51.98,13.86,6.92,1.07,24 24 24 24
+2,2,least loaded,25.5,52.9,13.6,7.06,1.03,26 23 22 25
+2,2,cache-aware,88.6,10.86,2.95,32.55,1.09,23 24 24 25
