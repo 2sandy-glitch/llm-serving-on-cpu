@@ -15,8 +15,8 @@ measured on this CPU. Other experiments (weight quantization and more) come afte
 |---|---|---|---|
 | 1 | GPT-2 KV cache: own GPT-2 + own KV cache, cache on vs off | [gpt2-kv-cache/](gpt2-kv-cache/) | ✅ 7.6× faster at 400 tokens, 72 KiB per token |
 | 2 | Reserved KV cache: memory taken once, filled in place | [gpt2-static-kv-cache/](gpt2-static-kv-cache/) | ✅ cache update 50× cheaper at 1,000 tokens, same text |
-| 3 | int8 KV cache: K and V stored in 8 bits with scales | – | Next |
-| 4 | Prefix caching: reuse the K/V of a shared prompt start | – | Planned |
+| 3 | int8 KV cache: K and V stored in 8 bits with scales | [gpt2-kv-cache-int8/](gpt2-kv-cache-int8/) | ✅ 3.8× less memory per token, +0.016% perplexity |
+| 4 | Prefix caching: reuse the K/V of a shared prompt start | – | Next |
 | 5 | Cache-aware routing: send requests to the worker that has their prefix | – | Planned |
 | 6 | Paged KV cache (optional) | – | Maybe |
 | 7 | KV cache eviction, H2O (optional) | – | Maybe |

@@ -9,6 +9,7 @@ repo root installs it.
 | [`load_weights.py`](load_weights.py) | Loads OpenAI's weights for `distilgpt2`, `gpt2` or `gpt2-medium` (sizes read from the Hugging Face config) |
 | [`kv_cache.py`](kv_cache.py) | My first KV cache: grows with `torch.cat` ([experiment](../gpt2-kv-cache/)) |
 | [`static_kv_cache.py`](static_kv_cache.py) | Reserved KV cache: memory taken once, filled in place ([experiment](../gpt2-static-kv-cache/)) |
+| [`int8_kv_cache.py`](int8_kv_cache.py) | Quantized KV cache: K and V as int8 + scales, per token or per channel ([experiment](../gpt2-kv-cache-int8/)) |
 | [`bench.py`](bench.py) | The benchmark method every experiment uses: warm-up, 3 timed runs, median and min-max, `environment.json` |
 | [`perplexity.py`](perplexity.py) | Quality score on WikiText-2, used by every experiment that might change the output |
 

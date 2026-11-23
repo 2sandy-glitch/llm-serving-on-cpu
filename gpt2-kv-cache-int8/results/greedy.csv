@@ -1,0 +1,33 @@
+setting,prompt,identical,first_different_token,same_positions_pct
+int8 K+V per token,"In a small village by the sea, there lived an old fisherman who",True,,100.0
+int8 K per channel + V per token,"In a small village by the sea, there lived an old fisherman who",True,,100.0
+"int8 K only, per token","In a small village by the sea, there lived an old fisherman who",True,,100.0
+"int8 V only, per token","In a small village by the sea, there lived an old fisherman who",True,,100.0
+int8 K+V per token,The history of the Roman Empire,True,,100.0
+int8 K per channel + V per token,The history of the Roman Empire,True,,100.0
+"int8 K only, per token",The history of the Roman Empire,True,,100.0
+"int8 V only, per token",The history of the Roman Empire,True,,100.0
+int8 K+V per token,Scientists have discovered a new species of,True,,100.0
+int8 K per channel + V per token,Scientists have discovered a new species of,True,,100.0
+"int8 K only, per token",Scientists have discovered a new species of,True,,100.0
+"int8 V only, per token",Scientists have discovered a new species of,True,,100.0
+int8 K+V per token,def fibonacci(n):,True,,100.0
+int8 K per channel + V per token,def fibonacci(n):,True,,100.0
+"int8 K only, per token",def fibonacci(n):,True,,100.0
+"int8 V only, per token",def fibonacci(n):,True,,100.0
+int8 K+V per token,The best way to learn a new language is,True,,100.0
+int8 K per channel + V per token,The best way to learn a new language is,True,,100.0
+"int8 K only, per token",The best way to learn a new language is,True,,100.0
+"int8 V only, per token",The best way to learn a new language is,True,,100.0
+int8 K+V per token,"Once upon a time, in a land far away,",True,,100.0
+int8 K per channel + V per token,"Once upon a time, in a land far away,",True,,100.0
+"int8 K only, per token","Once upon a time, in a land far away,",True,,100.0
+"int8 V only, per token","Once upon a time, in a land far away,",True,,100.0
+int8 K+V per token,The stock market fell sharply on Monday after,False,72,35.5
+int8 K per channel + V per token,The stock market fell sharply on Monday after,True,,100.0
+"int8 K only, per token",The stock market fell sharply on Monday after,True,,100.0
+"int8 V only, per token",The stock market fell sharply on Monday after,True,,100.0
+int8 K+V per token,Photosynthesis is the process by which,True,,100.0
+int8 K per channel + V per token,Photosynthesis is the process by which,True,,100.0
+"int8 K only, per token",Photosynthesis is the process by which,True,,100.0
+"int8 V only, per token",Photosynthesis is the process by which,True,,100.0

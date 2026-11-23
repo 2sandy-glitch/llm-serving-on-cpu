@@ -1,0 +1,10 @@
+setting,key_mode,value_mode,bits,bytes_per_token,cached_perplexity,perplexity_change_pct,top1_same_as_float_pct,max_score_diff,mean_score_diff
+float32,none,none,8,73728,37.749,0.0,100.0,0.0,0.0
+int8 K+V per token,per_token,per_token,8,19584,37.764,0.041,99.26,65.919,0.3453
+int8 K per channel + V per token,per_channel,per_token,8,20160,37.755,0.016,99.55,53.846,0.2189
+"int8 K only, per token",per_token,none,8,46656,37.765,0.044,99.3,73.843,0.3113
+"int8 V only, per token",none,per_token,8,46656,37.751,0.005,99.67,24.963,0.1436
+"4-bit K only, per token",per_token,none,4,,39.677,5.109,86.52,413.831,7.0923
+"4-bit K only, per channel",per_channel,none,4,,38.068,0.846,94.3,331.349,2.7274
+"4-bit V only, per token",none,per_token,4,,37.781,0.085,93.87,291.103,2.6529
+4-bit K per channel + V per token,per_channel,per_token,4,,38.195,1.184,91.55,373.914,3.8155

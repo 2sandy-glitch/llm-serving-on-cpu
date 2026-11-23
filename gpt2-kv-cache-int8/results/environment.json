@@ -1,0 +1,36 @@
+{
+  "date": "2026-11-23T13:08:57",
+  "cpu": "Intel(R) Core(TM) i5-9500 CPU @ 3.00GHz",
+  "cpu_cores": 6,
+  "threads": 6,
+  "load_average_1min_at_start": 0.55,
+  "load_average_1min_at_end": 6.4,
+  "python": "3.12.13",
+  "torch": "2.15.0+cpu",
+  "transformers": "5.23.0",
+  "model": "GPT-2 small (124M), own implementation, OpenAI weights",
+  "dtype": "float32 model; cache as listed",
+  "quality_eval": "WikiText-2 raw test, first 32 x 512 tokens, teacher-forced one token at a time",
+  "quality_tokens_scored": 16352,
+  "no_cache_perplexity_same_windows": 37.749,
+  "per_channel_group_size": 32,
+  "greedy_prompts": [
+    "In a small village by the sea, there lived an old fisherman who",
+    "The history of the Roman Empire",
+    "Scientists have discovered a new species of",
+    "def fibonacci(n):",
+    "The best way to learn a new language is",
+    "Once upon a time, in a land far away,",
+    "The stock market fell sharply on Monday after",
+    "Photosynthesis is the process by which"
+  ],
+  "greedy_new_tokens": 200,
+  "speed_prompt": "In a small village by the sea, there lived an old fisherman who",
+  "speed_new_tokens": [
+    100,
+    400,
+    800
+  ],
+  "timed_runs": 3,
+  "statistic": "median"
+}
