@@ -1,0 +1,6 @@
+case,prompt_tokens,reused_tokens,computed_tokens,ttft_median_ms,ttft_min_ms,ttft_max_ms,first_token
+first request,594,0,594,458.5,430.2,744.9,628
+identical request,594,593,1,29.1,25.7,109.1,628
+same start + extra text,612,594,18,78.8,37.8,1064.2,198
+changed beginning,597,0,597,506.9,439.9,1339.6,628
+"same document, new question",593,584,9,34.6,34.1,148.3,198

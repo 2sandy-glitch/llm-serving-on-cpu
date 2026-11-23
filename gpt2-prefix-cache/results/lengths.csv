@@ -1,0 +1,7 @@
+mode,document_tokens,prompt_tokens,reused_tokens,ttft_median_ms,ttft_min_ms,ttft_max_ms
+cold,100,113,0,98.2,74.9,144.6
+warm,100,113,104,28.8,28.4,51.9
+cold,300,313,0,205.4,193.2,276.3
+warm,300,313,304,37.4,30.6,297.1
+cold,600,613,0,628.3,504.0,896.2
+warm,600,613,604,35.3,35.1,88.3
