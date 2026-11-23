@@ -28,3 +28,7 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["gpt2lab"]
+
+[tool.pytest.ini_options]
+# Each experiment has its own tests/ folder; importlib mode lets test files share names safely.
+addopts = "--import-mode=importlib"
