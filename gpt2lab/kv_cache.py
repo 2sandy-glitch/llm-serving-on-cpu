@@ -50,12 +50,14 @@ class KVCache:
 
 
 @torch.no_grad()
-def generate_with_cache(model, idx: torch.Tensor, max_new_tokens: int) -> torch.Tensor:
+def generate_with_cache(model, idx: torch.Tensor, max_new_tokens: int, cache=None) -> torch.Tensor:
     """Greedy generation using the KV cache. Gives the same tokens as model.generate(), faster.
 
     model: a GPT2 from model.py. idx: prompt token ids (B, T).
+    cache: an empty cache to use, e.g. a StaticKVCache. If none is given, a KVCache (this file).
     """
-    cache = KVCache(model.config.n_layer)
+    if cache is None:
+        cache = KVCache(model.config.n_layer)
     logits = model(idx, cache)  # prefill: the whole prompt goes in once and fills the cache
     for step in range(max_new_tokens):
         next_id = logits[:, -1, :].argmax(dim=-1, keepdim=True)
