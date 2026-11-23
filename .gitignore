@@ -8,3 +8,4 @@ __pycache__/
 .pytest_cache/
 gpt2-kv-cache/benchmark/dashboard/progress.json
 gpt2-kv-cache/benchmark/dashboard/progress.tmp
+gpt2-tiered-kv-cache/offload_tmp/

@@ -8,8 +8,8 @@ weights and my KV cache. Every experiment imports it instead of copying the mode
 
 Setup, once: `uv sync` (installs PyTorch for CPU and `gpt2lab`).
 
-The current series is **caching**: several caching techniques built into my own GPT-2, each
-measured on this CPU. Other experiments (weight quantization and more) come after it.
+The first series is **caching**: eight caching techniques built into my own GPT-2, each measured
+on this CPU. Other experiments (weight quantization and more) come after it.
 
 | # | Experiment | Folder | Status |
 |---|---|---|---|
@@ -20,7 +20,7 @@ measured on this CPU. Other experiments (weight quantization and more) come afte
 | 5 | Cache-aware routing: send requests to the worker that has their prefix | [gpt2-cache-aware-routing/](gpt2-cache-aware-routing/) | ✅ cache hit rate 18% → 90%, 5.4× more requests/s (simulated 4 workers) |
 | 6 | Paged KV cache: memory handed out in small blocks as needed | [gpt2-paged-kv-cache/](gpt2-paged-kv-cache/) | ✅ 4.7× more requests in 512 MiB (7 → 33), waste 74% → 2.5% |
 | 7 | KV cache eviction (H2O): keep only the tokens that matter | [gpt2-kv-cache-eviction/](gpt2-kv-cache-eviction/) | ✅ 25% of the cache, +7.6% perplexity (H2O); sliding window +3,530% |
-| 8 | Tiered offloading: move cold cache entries from RAM to disk | – | Next |
+| 8 | Tiered offloading: move cold cache entries from RAM to disk | [gpt2-tiered-kv-cache/](gpt2-tiered-kv-cache/) | ✅ disk read 4.9× sooner than recomputing at 1,000 tokens |
 
 After the caching series: weight quantization (16 / 8 / 4 bits), BitNet 1.58-bit, speculative
 decoding.

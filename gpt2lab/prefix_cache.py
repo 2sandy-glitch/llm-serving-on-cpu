@@ -62,8 +62,16 @@ class PrefixStore:
             return t if t.shape[2] == n else t[:, :, :n].clone()
 
         self.entries[key] = ([keep(k) for k in cache.k], [keep(v) for v in cache.v])
-        if len(self.entries) > self.max_entries:
-            self.entries.popitem(last=False)  # drop the least recently used
+        self._make_room()
+
+    def _make_room(self) -> None:
+        while len(self.entries) > self.max_entries:
+            key, value = self.entries.popitem(last=False)  # the least recently used
+            self._evict(key, value)
+
+    def _evict(self, key: tuple, value: tuple[list, list]) -> None:
+        """What happens to an entry pushed out of the store: here it is simply dropped.
+        TieredPrefixStore overrides this to save it to disk instead."""
 
     def nbytes(self) -> int:
         return sum(t.numel() * t.element_size() for ks, vs in self.entries.values() for t in ks + vs)

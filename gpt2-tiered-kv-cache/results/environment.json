@@ -1,0 +1,23 @@
+{
+  "date": "2026-11-23T16:34:40",
+  "cpu": "Intel(R) Core(TM) i5-9500 CPU @ 3.00GHz",
+  "cpu_cores": 6,
+  "threads": 6,
+  "load_average_1min_at_start": 2.03,
+  "load_average_1min_at_end": 6.87,
+  "python": "3.12.13",
+  "torch": "2.15.0+cpu",
+  "transformers": "5.23.0",
+  "model": "GPT-2 small (124M), own implementation, OpenAI weights",
+  "dtype": "float32 (also on disk)",
+  "disk": "SATA SSD (EVM25 512 GB); files written with torch.save, fsync, then posix_fadvise DONTNEED",
+  "lengths": [
+    100,
+    300,
+    600,
+    1000
+  ],
+  "workload": "16 documents x 6 questions, shuffled (seed 0); RAM 4 documents, disk 16",
+  "timed_runs": 7,
+  "statistic": "median"
+}

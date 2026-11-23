@@ -1,0 +1,3 @@
+store,requests,from_ram,from_disk,recomputed,total_ttft_s,mean_ttft_ms
+RAM only,96,19,0,77,38.56,401.6
+RAM + disk,96,19,61,16,35.81,373.0
