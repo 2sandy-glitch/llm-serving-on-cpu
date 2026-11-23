@@ -1,0 +1,4 @@
+cache,new_tokens,median_s,min_s,max_s,tokens_per_s
+full,800,22.1,21.589,22.377,36.2
+"h2o, budget 128",800,21.362,21.295,21.532,37.45
+"sink, budget 128",800,21.438,21.202,21.562,37.32

@@ -1,0 +1,39 @@
+{
+  "date": "2026-11-23T15:56:07",
+  "cpu": "Intel(R) Core(TM) i5-9500 CPU @ 3.00GHz",
+  "cpu_cores": 6,
+  "threads": 6,
+  "load_average_1min_at_start": 2.26,
+  "load_average_1min_at_end": 6.15,
+  "python": "3.12.13",
+  "torch": "2.15.0+cpu",
+  "transformers": "5.23.0",
+  "model": "GPT-2 small (124M), own implementation, OpenAI weights",
+  "dtype": "float32",
+  "quality_eval": "WikiText-2 raw test, first 16 x 512 tokens, teacher-forced one token at a time",
+  "quality_tokens_scored": 8176,
+  "budgets": [
+    256,
+    128,
+    64,
+    32
+  ],
+  "policies": [
+    "recent",
+    "sink",
+    "h2o",
+    "random"
+  ],
+  "h2o_recent_share": "half the budget",
+  "sink_tokens": 4,
+  "speed_prompt": "In a small village by the sea, there lived an old fisherman who",
+  "speed_new_tokens": 800,
+  "speed_budget": 128,
+  "timed_runs": 3,
+  "statistic": "median",
+  "speed_rerun": {
+    "date": "2026-11-23T15:56:07",
+    "load_average_1min_at_start": 2.04,
+    "load_average_1min_at_end": 6.15
+  }
+}

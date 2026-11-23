@@ -72,6 +72,11 @@ class CausalSelfAttention(nn.Module):
         weights = F.softmax(scores, dim=-1)  # each row sums to 1
         out = weights @ v  # weighted mix of Values: (B, H, T, D)
 
+        # Optional: a cache that drops tokens (evicting_kv_cache.py) needs to know how much
+        # attention each cached token received. Other caches don't have observe(), so nothing happens.
+        if cache is not None and hasattr(cache, "observe"):
+            cache.observe(self.layer, weights)
+
         # Join the heads back together: (B, H, T, D) -> (B, T, C).
         out = out.transpose(1, 2).contiguous().view(B, T, C)
         return self.c_proj(out)
